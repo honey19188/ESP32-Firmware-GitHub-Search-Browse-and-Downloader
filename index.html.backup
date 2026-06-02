@@ -1,0 +1,2266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 固件下载器</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #334155;
+            --accent: #3b82f6;
+            --accent-hover: #60a5fa;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border: #475569;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Layout */
+        .app {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .nav-btn {
+            padding: 0.5rem 1rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .nav-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .main {
+            flex: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            width: 100%;
+        }
+
+        /* Search Page */
+        .search-container {
+            max-width: 700px;
+            margin: 3rem auto;
+            text-align: center;
+        }
+
+        .search-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--text-primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .search-subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 0.75rem;
+            background: var(--bg-secondary);
+            padding: 0.5rem;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            transition: border-color 0.2s;
+        }
+
+        .search-box:focus-within {
+            border-color: var(--accent);
+        }
+
+        .search-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 1rem 1.25rem;
+            font-size: 1rem;
+            color: var(--text-primary);
+            outline: none;
+        }
+
+        .search-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .search-btn {
+            padding: 1rem 2rem;
+            background: var(--accent);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .search-btn:hover {
+            background: var(--accent-hover);
+        }
+
+        .search-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Repo Grid */
+        .repo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .repo-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            animation: fadeInUp 0.4s ease forwards;
+            opacity: 0;
+        }
+
+        .repo-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent);
+            box-shadow: 0 12px 40px rgba(59, 130, 246, 0.15);
+        }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .repo-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .repo-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .repo-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .repo-name {
+            font-weight: 600;
+            font-size: 1rem;
+            color: var(--accent);
+            word-break: break-all;
+        }
+
+        .repo-stars {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            color: var(--warning);
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .repo-desc {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .repo-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .repo-link:hover {
+            color: var(--accent);
+        }
+
+        /* Loading & States */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem;
+            color: var(--text-secondary);
+        }
+
+        /* MCU Selector */
+        .mcu-selector {
+            margin-bottom: 1.5rem;
+        }
+
+        .mcu-selector-label {
+            display: block;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .mcu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .mcu-item {
+            padding: 0.75rem;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mcu-item:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .mcu-item.active {
+            border-color: var(--accent);
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .mcu-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .mcu-chinese {
+            font-size: 0.8rem;
+            color: var(--accent);
+            margin-bottom: 0.25rem;
+        }
+
+        .mcu-description {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        /* Detail Page */
+        .detail-header {
+            margin-bottom: 2rem;
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.875rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .detail-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .detail-desc {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .detail-meta {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .meta-item a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .meta-item a:hover {
+            text-decoration: underline;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Releases */
+        .releases-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .release-item {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .release-item:hover {
+            border-color: var(--accent);
+        }
+
+        .release-header {
+            padding: 1rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+        }
+
+        .release-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .release-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            color: var(--accent);
+            background: rgba(59, 130, 246, 0.1);
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+        }
+
+        .release-date {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .release-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            background: var(--warning);
+            color: #000;
+        }
+
+        .release-toggle {
+            color: var(--text-secondary);
+            transition: transform 0.2s;
+        }
+
+        .release-toggle.expanded {
+            transform: rotate(180deg);
+        }
+
+        .release-content {
+            padding: 0 1.25rem 1.25rem;
+            border-top: 1px solid var(--border);
+            display: none;
+        }
+
+        .release-content.expanded {
+            display: block;
+        }
+
+        .asset-list {
+            margin-top: 1rem;
+        }
+
+        .asset-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem;
+            background: var(--bg-card);
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+
+        .asset-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .asset-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            flex-shrink: 0;
+        }
+
+        .asset-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .asset-size {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+        }
+
+        .download-btn {
+            padding: 0.5rem 1rem;
+            background: var(--accent);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .download-btn:hover {
+            background: var(--accent-hover);
+        }
+
+        .download-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Downloads Page */
+        .downloads-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            gap: 1rem;
+        }
+
+        .downloads-header .back-btn {
+            margin-right: 0;
+        }
+
+        .downloads-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            flex: 1;
+            text-align: center;
+        }
+
+        .clear-btn {
+            padding: 0.5rem 1rem;
+            background: transparent;
+            border: 1px solid var(--error);
+            border-radius: 8px;
+            color: var(--error);
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .clear-btn:hover {
+            background: var(--error);
+            color: white;
+        }
+
+        .downloads-list {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .download-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .download-item:last-child {
+            border-bottom: none;
+        }
+
+        .download-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--bg-card);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--success);
+            margin-right: 1rem;
+            flex-shrink: 0;
+        }
+
+        .download-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .download-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .download-meta {
+            display: flex;
+            gap: 1rem;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+        }
+
+        .download-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .action-btn {
+            width: 36px;
+            height: 36px;
+            background: var(--bg-card);
+            border: none;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            color: var(--accent);
+            background: var(--bg-secondary);
+        }
+
+        .action-btn.delete:hover {
+            color: var(--error);
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--bg-card);
+            border-radius: 8px;
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #8b5cf6);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 1.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            animation: slideIn 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.success {
+            border-color: var(--success);
+        }
+
+        .toast.error {
+            border-color: var(--error);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Search History */
+        .search-history {
+            margin-top: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        .history-tag {
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.125rem;
+            min-width: 100px;
+        }
+
+        .history-tag .en-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+        }
+
+        .history-tag .cn-name {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .history-tag:hover {
+            border-color: var(--accent);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                padding: 1rem;
+            }
+
+            .main {
+                padding: 1rem;
+            }
+
+            .search-title {
+                font-size: 1.75rem;
+            }
+
+            .repo-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .detail-meta {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .download-item {
+                flex-wrap: wrap;
+            }
+
+            .download-actions {
+                margin-top: 0.75rem;
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, createContext, useContext } = React;
+
+        // GitHub API
+        const GITHUB_API = 'https://api.github.com';
+
+        // Context
+        const AppContext = createContext();
+
+        // Toast Component
+        function Toast({ message, type, onClose }) {
+            useEffect(() => {
+                const timer = setTimeout(onClose, 3000);
+                return () => clearTimeout(timer);
+            }, [onClose]);
+
+            return (
+                <div className={`toast ${type}`}>
+                    <span>{type === 'success' ? '✓' : '✕'}</span>
+                    <span>{message}</span>
+                </div>
+            );
+        }
+
+        // Icons
+        const Icons = {
+            Search: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="m21 21-4.35-4.35"/>
+                </svg>
+            ),
+            Star: () => (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="12,2 15,8.5 22,9.3 17,14 18.2,21 12,17.5 5.8,21 7,14 2,9.3 9,8.5"/>
+                </svg>
+            ),
+            ExternalLink: () => (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                    <polyline points="15 3 21 3 21 9"/>
+                    <line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+            ),
+            ChevronDown: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            ),
+            Download: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+            ),
+            Trash: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+            ),
+            File: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                </svg>
+            ),
+            Folder: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+            ),
+            Chip: () => (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="4" y="4" width="16" height="16" rx="2"/>
+                    <rect x="9" y="9" width="6" height="6"/>
+                    <line x1="9" y1="1" x2="9" y2="4"/>
+                    <line x1="15" y1="1" x2="15" y2="4"/>
+                    <line x1="9" y1="20" x2="9" y2="23"/>
+                    <line x1="15" y1="20" x2="15" y2="23"/>
+                    <line x1="20" y1="9" x2="23" y2="9"/>
+                    <line x1="20" y1="14" x2="23" y2="14"/>
+                    <line x1="1" y1="9" x2="4" y2="9"/>
+                    <line x1="1" y1="14" x2="4" y2="14"/>
+                </svg>
+            ),
+            ArrowLeft: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="19" y1="12" x2="5" y2="12"/>
+                    <polyline points="12 19 5 12 12 5"/>
+                </svg>
+            ),
+            Check: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+            ),
+            Translate: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M5 8l6 6"/>
+                    <path d="M4 14l6-6 2-2"/>
+                    <path d="M2 5h12"/>
+                    <path d="M7 2h1"/>
+                    <path d="M22 22l-5-10-5 10"/>
+                    <path d="M14 18h6"/>
+                </svg>
+            ),
+        };
+
+        // Header Component
+        function Header() {
+            const { currentPage, setCurrentPage, searchHistory, setSearchHistory } = useContext(AppContext);
+
+            const handleClearHistory = () => {
+                localStorage.removeItem('esp32_search_history');
+                setSearchHistory([]);
+            };
+
+            const navigateToSearch = () => {
+                setCurrentPage('search');
+            };
+
+            const navigateToDownloads = () => {
+                setCurrentPage('downloads');
+            };
+
+            return (
+                <header className="header">
+                    <div className="header-content">
+                        <div className="logo" onClick={navigateToSearch}>
+                            <div className="logo-icon">
+                                <Icons.Chip />
+                            </div>
+                            <span>ESP32 固件下载器</span>
+                        </div>
+                        <nav className="nav">
+                            <button
+                                className={`nav-btn ${currentPage === 'search' ? 'active' : ''}`}
+                                onClick={navigateToSearch}
+                            >
+                                搜索
+                            </button>
+                            <button
+                                className={`nav-btn ${currentPage === 'downloads' ? 'active' : ''}`}
+                                onClick={navigateToDownloads}
+                            >
+                                下载管理
+                            </button>
+                        </nav>
+                    </div>
+                </header>
+            );
+        }
+
+        // Search Page
+        function SearchPage() {
+            const { setCurrentPage, setSelectedRepo, setSearchHistory, searchHistory, setToast } = useContext(AppContext);
+            const [query, setQuery] = useState('');
+            const [selectedMCU, setSelectedMCU] = useState('');
+            const [repos, setRepos] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [loadingText, setLoadingText] = useState('搜索中...');
+            const [translateEnabled, setTranslateEnabled] = useState(false);
+            const [translating, setTranslating] = useState(false);
+            const [translatedDescs, setTranslatedDescs] = useState({});
+            const [transProgress, setTransProgress] = useState(0);
+            const [filterReleasesOnly, setFilterReleasesOnly] = useState(false);
+
+            // 单片机列表
+            const mcuList = [
+                { id: 'ESP32', name: 'ESP32', chinese: '基础款ESP32', description: '双核240MHz WiFi+蓝牙' },
+                { id: 'ESP32-S2', name: 'ESP32-S2', chinese: '单WiFi版', description: '单核240MHz 仅WiFi' },
+                { id: 'ESP32-S3', name: 'ESP32-S3', chinese: 'AIoT旗舰', description: '双核240MHz 向量指令' },
+                { id: 'ESP32-C3', name: 'ESP32-C3', chinese: 'RISC-V入门', description: '单核160MHz 低成本' },
+                { id: 'ESP32-C6', name: 'ESP32-C6', chinese: 'Zigbee+WiFi6', description: '单核160MHz 多协议' },
+                { id: 'ESP32-H2', name: 'ESP32-H2', chinese: '低功耗蓝牙+Thread', description: '单核96MHz 低功耗' },
+                { id: 'ESP32-C2', name: 'ESP32-C2', chinese: '超低成本', description: '单核120MHz 极简入门' },
+                { id: 'ESP8266', name: 'ESP8266', chinese: '经典WiFi芯片', description: '单核80MHz 性价比高' },
+                { id: 'STM32', name: 'STM32', chinese: 'STM32全系列', description: 'Arm Cortex-M 工业级' },
+                { id: 'Arduino', name: 'Arduino', chinese: 'Arduino平台', description: 'AVR/SAMD等兼容板' },
+                { id: 'RaspberryPi', name: 'Raspberry Pi', chinese: '树莓派', description: 'Linux单板计算机' },
+                { id: 'Pico', name: 'Pico', chinese: '树莓派Pico', description: 'RP2040双核MCU' },
+                { id: 'Microbit', name: 'Micro:bit', chinese: 'micro:bit', description: '教育编程开发板' },
+                { id: 'ATmega', name: 'ATmega', chinese: 'AVR系列', description: '经典8位单片机' },
+                { id: 'CH32', name: 'CH32', chinese: '沁恒CH32', description: 'RISC-V 高性价比' },
+                { id: 'GD32', name: 'GD32', chinese: '兆易GD32', description: 'STM32兼容国产' },
+                { id: '', name: 'All', chinese: '全部', description: '显示所有结果' }
+            ];
+
+            // 库名到中文的映射表
+            const libraryNames = {
+                'WiFiManager': 'WiFi配置管理器',
+                'AutoConnect': '自动连接库',
+                'AsyncTCP': '异步TCP库',
+                'ESPAsyncWebServer': '异步Web服务器',
+                'ESP-MQTT': '官方MQTT库',
+                'ESP-NOW': '乐鑫通信协议',
+                'mDNS': '局域网服务发现',
+                'ESP-MODBUS': 'Modbus协议库',
+                'WebSockets': 'WebSocket通信',
+                'BluetoothSerial': '蓝牙串口',
+                'SGP30': 'TVOC/eCO₂传感器',
+                'SGP40': 'VOC气体传感器',
+                'SGP41': 'VOC和NOx传感器',
+                'CCS811': '室内空气质量传感器',
+                'BME680': '四合一环境传感器',
+                'BME688': '四合一AI气体传感器',
+                'ENS160': '多气体传感器',
+                'SCD30': '高精度CO₂传感器',
+                'SCD40': 'CO₂传感器',
+                'SCD41': 'CO₂传感器',
+                'PMS5003': '激光粉尘传感器',
+                'PMS7003': '激光粉尘传感器',
+                'SHT3x': '高精度温湿度',
+                'SHT4x': '高精度温湿度',
+                'AHT10': '国产温湿度',
+                'AHT20': '国产温湿度',
+                'MAX30101': '心率血氧传感器',
+                'MAX30102': '心率血氧传感器',
+                'MAX30105': '粒子传感器',
+                'MAX30100': '脉搏血氧仪',
+                'AD8232': '心电ECG芯片',
+                'MLX90640': '32x24红外热成像',
+                'MLX90641': '16x12红外热成像',
+                'AMG8833': '8x8红外热成像',
+                'MLX90614': '红外温度计',
+                'VL53L0X': 'ToF激光测距2米',
+                'VL53L1X': 'ToF激光测距4米',
+                'VL6180X': 'ToF测距和光传感器',
+                'TOF10120': 'I2C激光测距',
+                'NewPing': '超声波测距库',
+                'US-100': '超声测距传感器',
+                'MPU9250': '九轴IMU传感器',
+                'MPU9255': '九轴IMU传感器',
+                'ICM20948': '九轴IMU升级版',
+                'BNO055': '九轴绝对定向',
+                'BNO085': '传感器融合芯片',
+                'BNO086': '传感器融合芯片',
+                'APDS9960': '手势/接近/颜色',
+                'TCS34725': 'RGB颜色传感器',
+                'VCNL4010': '接近和环境光',
+                'MQ-2': '烟雾液化气传感器',
+                'MQ-5': '气体传感器',
+                'MQ-7': '一氧化碳传感器',
+                'MQ-135': '空气质量传感器',
+                'ZMOD4410': '室内空气质量',
+                'Senseair S8': '低功耗CO₂传感器',
+                '土壤湿度': '电容式土壤湿度',
+                'Plantmonitor': '植物监测库',
+                'TDS测量': '总溶解固体测量',
+                'LD2410': '毫米波雷达',
+                'LD2413': '毫米波液位传感器',
+                'RD-03D': '人体存在雷达',
+                'ESP-Radar': '乐鑫雷达框架',
+                'VEML6075': '紫外线传感器',
+                'ML8511': '模拟紫外线传感器',
+                'MS5837': '压力传感器水深',
+                'SPS30': '颗粒物传感器',
+                'TFT_eSPI': 'TFT屏幕驱动',
+                'LVGL': '轻量级图形库',
+                'u8g2': '单色屏图形库',
+                'Adafruit-GFX-Library': '基础图形库',
+                'NeoPixelBus': 'RGB LED灯带库',
+                'FastLED': '高效LED控制库',
+                'M5Unified': 'M5统一硬件抽象',
+                'ssd1306': 'OLED屏驱动',
+                'ILI9341': 'TFT屏驱动',
+                'ArduinoJson': 'JSON解析库',
+                'Blinker': '物联网平台库',
+                'Firebase-ESP-Client': 'Firebase客户端',
+                'HomeKit-ESP32': '苹果HomeKit',
+                'ESPresense': '室内定位节点',
+                'Telegram-Bot': 'Telegram机器人',
+                'ESP-RainMaker': '乐鑫AIoT平台',
+                'Blynk': '物联网平台',
+                'PubSubClient': 'MQTT客户端',
+                'Courier': '网络连接管理',
+                'ESP-ADF': '乐鑫音频框架',
+                'ESP8266Audio': '音频播放库',
+                'ESP32-A2DP': '蓝牙音频协议',
+                'ESP32-SpeexDSP': '音频处理库',
+                'esp-audio-player': '音频播放器',
+                'Talkie': '语音合成库',
+                'ESP-SR': '乐鑫语音识别',
+                'Adafruit-PWM-Servo-Driver': 'PWM舵机驱动',
+                'ESP32Servo': 'ESP32舵机库',
+                'AccelStepper': '步进电机库',
+                'MFRC522': 'RFID读卡器',
+                'IRremote': '红外遥控库',
+                'Rtc': '实时时钟库',
+                'SD': 'SD卡驱动',
+                'SPI': 'SPI通信库',
+                'Wire': 'I2C通信库',
+                'SPIFFS': '文件系统',
+                'LITTLEFS': '文件系统',
+                'FATFS': 'FAT文件系统',
+                'SdFat': 'SD卡库',
+                'VFS': '虚拟文件系统',
+                'ESP-UFFS': 'Flash文件系统',
+                'FSBrowser': 'Web文件管理',
+                'mbedTLS': 'TLS加密库',
+                'esp-cryptoauthlib': '加密协处理器',
+                'AES': '对称加密算法',
+                'SHA': '安全哈希算法',
+                'ArduinoJWT': 'JWT令牌库',
+                'Adafruit_QRCode': '二维码生成',
+                'Time': '时间处理库',
+                'NTPClient': '网络时间库',
+                'ezTime': '时区时间库',
+                'TaskScheduler': '任务调度库',
+                'SimpleTimer': '定时任务库',
+                'Preferences': '键值存储库',
+                'Kalman': '卡尔曼滤波',
+                'Madgwick': '姿态解算算法',
+                'ArduinoTrace': '调试跟踪库',
+                'ESP-IDF': '乐鑫开发框架',
+                'MicroPython': 'Python固件',
+                'ESPHome': '智能家居平台',
+                'Tasmota': '智能开关固件',
+                'ESP-WHO': '人脸识别框架',
+                'ESP-CSI': 'WiFi信道状态',
+                'PlatformIO': '跨平台开发',
+                'OpenMV': '机器视觉',
+                'AITall_Serial_ParseData': '串口数据解析工具',
+                'block-build-tool': '积木构建工具',
+                'HuskyLens': '视觉识别传感器',
+                'microdot': '轻量级Web框架',
+                'QDProbot_Mixly_voice_V2': 'Mixly语音模块',
+                'QHK210Cam': '摄像头模块',
+                'SSD1306': 'OLED显示屏驱动',
+                'camera': '摄像头模块',
+                'ci1302x': '语音芯片驱动',
+                'es8374': '音频编解码',
+                'esp_dl': '深度学习库',
+                'mixgo_nova': 'MixGo Nova板卡',
+                'mixgo_nova_voice': 'MixGo Nova语音',
+                'mixgo_sant': 'MixGo Sant板卡',
+                'mixgo_soar': 'MixGo Soar板卡',
+                'mixgo_soar_voice': 'MixGo Soar语音',
+                'music_spk': '音乐播放库',
+                'nova_g1': 'Nova G1板卡',
+                'sant_bot': 'Sant机器人',
+                'sant_g2': 'Sant G2板卡',
+                'sant_gx': 'Sant GX板卡',
+                'sant_tts': 'Sant语音合成',
+                'soar_bot': 'Soar机器人',
+                'st7789_bf': 'ST7789屏幕驱动',
+                'st7789_cf': 'ST7789屏幕驱动',
+                'ws2812x': 'LED灯带驱动'
+            };
+
+            const getChineseName = (name) => {
+                return libraryNames[name] || name;
+            };
+
+            const handleSearch = useCallback(async (searchQuery) => {
+                if (!searchQuery.trim() && !selectedMCU) return;
+
+                setLoading(true);
+                setLoadingText('搜索仓库中...');
+                setTranslateEnabled(false);
+                setTranslatedDescs({});
+                try {
+                    // 构建搜索查询
+                    let queryText = searchQuery;
+                    if (selectedMCU) {
+                        queryText = searchQuery ? `${searchQuery} ${selectedMCU}` : selectedMCU;
+                    }
+                    
+                    // 第一步：先搜索输入词查询公共存储库
+                    const res = await fetch(
+                        `${GITHUB_API}/search/repositories?q=${encodeURIComponent(queryText)}&sort=stars&order=desc&per_page=100`
+                    );
+                    if (!res.ok) {
+                        throw new Error(`HTTP error! status: ${res.status}`);
+                    }
+                    const data = await res.json();
+                    const allRepos = data.items || [];
+
+                    // 第二步：在公共库里面搜索输入词（筛选与输入词相关的仓库）
+                    const relatedRepos = allRepos.filter(repo => {
+                        if (searchQuery) {
+                            const nameMatch = repo.name.toLowerCase().includes(searchQuery.toLowerCase());
+                            const descMatch = repo.description?.toLowerCase().includes(searchQuery.toLowerCase());
+                            return nameMatch || descMatch;
+                        }
+                        return true;
+                    });
+
+                    // 第三步：如果选择了单片机，进一步筛选相关仓库
+                    const filteredRepos = selectedMCU ? relatedRepos.filter(repo => {
+                        const nameMatch = repo.name.toLowerCase().includes(selectedMCU.toLowerCase());
+                        const descMatch = repo.description?.toLowerCase().includes(selectedMCU.toLowerCase());
+                        return nameMatch || descMatch;
+                    }) : relatedRepos;
+
+                    // 第四步：检查每个仓库是否有发行或Source code
+                    const validRepos = [];
+                    let checked = 0;
+
+                    for (const repo of filteredRepos) {
+                        checked++;
+                        setLoadingText(`检查仓库 ${checked}/${filteredRepos.length}...`);
+                        
+                        let hasReleases = false;
+                        let latestRelease = null;
+                        
+                        try {
+                            // 添加超时处理
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), 3000);
+                            
+                            // 检查是否有 releases
+                            const releasesRes = await fetch(
+                                `${GITHUB_API}/repos/${repo.owner.login}/${repo.name}/releases?per_page=1`,
+                                { signal: controller.signal }
+                            );
+                            clearTimeout(timeoutId);
+                            
+                            if (releasesRes.ok) {
+                                const releases = await releasesRes.json();
+                                if (Array.isArray(releases) && releases.length > 0) {
+                                    hasReleases = true;
+                                    latestRelease = releases[0];
+                                }
+                            }
+                        } catch (e) {
+                            // 检查失败，继续处理
+                        }
+                        
+                        // 检查是否有Source code（仓库大小 > 0 或有默认分支）
+                        const hasSourceCode = repo.size > 0 || repo.default_branch;
+                        
+                        // 仅保留有发行或Source code的仓库
+                        if (hasReleases || hasSourceCode) {
+                            repo.hasReleases = hasReleases;
+                            repo.latest_release = latestRelease;
+                            repo.hasSourceCode = hasSourceCode;
+                            validRepos.push(repo);
+                        }
+                    }
+
+                    setRepos(validRepos);
+
+                    // Save to history
+                    if (searchQuery) {
+                        const newHistory = [searchQuery, ...searchHistory.filter(h => h !== searchQuery)].slice(0, 10);
+                        localStorage.setItem('esp32_search_history', JSON.stringify(newHistory));
+                        setSearchHistory(newHistory);
+                    }
+                } catch (err) {
+                    console.error('Search failed:', err);
+                    setToast('搜索失败，请重试', 'error');
+                }
+                setLoading(false);
+                setLoadingText('搜索中...');
+            }, [searchHistory, setSearchHistory, setToast, selectedMCU]);
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                handleSearch(query);
+            };
+
+            const handleHistoryClick = (term) => {
+                setQuery(term);
+                handleSearch(term);
+            };
+
+            const handleRepoClick = (repo) => {
+                setSelectedRepo(repo);
+                setCurrentPage('detail', repo);
+            };
+
+            const handleMCUSelect = (mcuId) => {
+                setSelectedMCU(mcuId);
+                if (mcuId) {
+                    handleSearch('');
+                } else {
+                    setRepos([]);
+                }
+            };
+
+            const translateDescriptions = async () => {
+                if (translateEnabled) {
+                    setTranslateEnabled(false);
+                    return;
+                }
+
+                setTranslating(true);
+                setTransProgress(0);
+                const newTrans = {};
+                const reposWithDesc = repos.filter(r => r.description && !translatedDescs[r.id]);
+
+                for (let i = 0; i < reposWithDesc.length; i++) {
+                    const repo = reposWithDesc[i];
+                    try {
+                        // Check cache first
+                        const cacheKey = `trans_${repo.id}`;
+                        const cached = localStorage.getItem(cacheKey);
+                        if (cached) {
+                            newTrans[repo.id] = cached;
+                        } else {
+                            const res = await fetch(
+                                `https://api.mymemory.translated.net/get?q=${encodeURIComponent(repo.description)}&langpair=en|zh-CN`
+                            );
+                            const data = await res.json();
+                            if (data.responseStatus === 200 && data.responseData?.translatedText) {
+                                const translated = data.responseData.translatedText;
+                                newTrans[repo.id] = translated;
+                                localStorage.setItem(cacheKey, translated);
+                            } else {
+                                newTrans[repo.id] = repo.description;
+                            }
+                        }
+                    } catch (err) {
+                        newTrans[repo.id] = repo.description;
+                    }
+                    setTransProgress(Math.round(((i + 1) / reposWithDesc.length) * 100));
+                }
+
+                setTranslatedDescs(prev => ({ ...prev, ...newTrans }));
+                setTranslateEnabled(true);
+                setTranslating(false);
+            };
+
+            return (
+                <div>
+                    <div className="search-container">
+                        <h1 className="search-title">ESP32 固件下载器</h1>
+                        <p className="search-subtitle">在 GitHub 上搜索、浏览和下载各类固件</p>
+
+                        {/* MCU选择器 */}
+                        <div className="mcu-selector">
+                            <p className="mcu-selector-label">🎯 选择单片机/开发板型号：</p>
+                            <div className="mcu-grid">
+                                {mcuList.map((mcu, index) => (
+                                    <div
+                                        key={index}
+                                        className={`mcu-item ${selectedMCU === mcu.id ? 'active' : ''}`}
+                                        onClick={() => handleMCUSelect(mcu.id)}
+                                        title={mcu.description}
+                                    >
+                                        <div className="mcu-name">{mcu.name}</div>
+                                        <div className="mcu-chinese">{mcu.chinese}</div>
+                                        <div className="mcu-description">{mcu.description}</div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="search-box">
+                            <input
+                                type="text"
+                                className="search-input"
+                                placeholder="搜索 ESP32 固件..."
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                            />
+                            <button type="submit" className="search-btn" disabled={loading}>
+                                {loading ? '搜索中...' : '搜索'}
+                            </button>
+                        </form>
+
+                        {/* 筛选选项 */}
+                        {repos.length > 0 && (
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '1rem',
+                                marginTop: '1rem',
+                                flexWrap: 'wrap'
+                            }}>
+                                <label style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    cursor: 'pointer',
+                                    fontSize: '0.875rem',
+                                    color: 'var(--text-secondary)'
+                                }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={filterReleasesOnly}
+                                        onChange={(e) => setFilterReleasesOnly(e.target.checked)}
+                                        style={{
+                                            width: '18px',
+                                            height: '18px',
+                                            cursor: 'pointer',
+                                            accentColor: 'var(--accent)'
+                                        }}
+                                    />
+                                    只显示有发布版本的仓库
+                                </label>
+                                <div style={{
+                                    fontSize: '0.875rem',
+                                    color: 'var(--text-secondary)'
+                                }}>
+                                    找到 {filterReleasesOnly ? repos.filter(r => r.hasReleases).length : repos.length} 个仓库
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 常用库推荐 */}
+                        <div style={{ marginTop: '1.5rem' }}>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.75rem' }}>
+                                🔥 推荐 ESP32 库：
+                            </p>
+                            <div className="search-history">
+                                {[
+                                    'MicroPython', 'ESP-IDF', 'mixgo_nova', 'mixgo_sant', 'microdot',
+                                    'HuskyLens', 'SSD1306', 'ws2812x', 'ArduinoJson', 'TFT_eSPI',
+                                    'LVGL', 'FastLED', 'ESPHome', 'Tasmota', 'ESPAsyncWebServer'
+                                ].map((term, i) => (
+                                    <span
+                                        key={i}
+                                        className="history-tag"
+                                        onClick={() => handleHistoryClick(term)}
+                                        style={{
+                                            background: 'var(--bg-card)',
+                                            borderColor: 'var(--accent)',
+                                            color: 'var(--accent)'
+                                        }}
+                                    >
+                                        <span className="en-name">{term}</span>
+                                        <span className="cn-name">{getChineseName(term)}</span>
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+
+                        {searchHistory.length > 0 && (
+                            <div style={{ marginTop: '1.5rem' }}>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.75rem' }}>
+                                    📚 搜索历史：
+                                </p>
+                                <div className="search-history">
+                                    {searchHistory.map((term, i) => (
+                                        <span key={i} className="history-tag" onClick={() => handleHistoryClick(term)}>
+                                            {term}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 热门项目分类 */}
+                    {!loading && repos.length === 0 && (
+                        <div style={{ marginTop: '3rem' }}>
+                            <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>
+                                📦 ESP32 常用库完整分类
+                            </h2>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
+                                {[
+                                    {
+                                        title: '网络通信',
+                                        icon: '🌐',
+                                        items: ['WiFiManager', 'AutoConnect', 'AsyncTCP', 'ESPAsyncWebServer', 'ESP-MQTT', 'ESP-NOW', 'mDNS', 'ESP-MODBUS', 'WebSockets', 'BluetoothSerial'],
+                                        color: '#3b82f6'
+                                    },
+                                    {
+                                        title: '🌱 环境与空气质量',
+                                        icon: '🌱',
+                                        items: ['SGP30', 'SGP40', 'SGP41', 'CCS811', 'BME680', 'BME688', 'ENS160', 'SCD30', 'SCD40', 'SCD41', 'PMS5003', 'PMS7003', 'SHT3x', 'SHT4x', 'AHT10', 'AHT20'],
+                                        color: '#10b981'
+                                    },
+                                    {
+                                        title: '🩺 生物医学与健康',
+                                        icon: '🩺',
+                                        items: ['MAX30101', 'MAX30102', 'MAX30105', 'MAX30100', 'AD8232'],
+                                        color: '#ef4444'
+                                    },
+                                    {
+                                        title: '🔥 红外热成像',
+                                        icon: '🔥',
+                                        items: ['MLX90640', 'MLX90641', 'AMG8833', 'MLX90614'],
+                                        color: '#f59e0b'
+                                    },
+                                    {
+                                        title: '📏 距离与测距',
+                                        icon: '📏',
+                                        items: ['VL53L0X', 'VL53L1X', 'VL6180X', 'TOF10120', 'NewPing', 'US-100'],
+                                        color: '#8b5cf6'
+                                    },
+                                    {
+                                        title: '⚡ 惯性测量IMU',
+                                        icon: '⚡',
+                                        items: ['MPU9250', 'MPU9255', 'ICM20948', 'BNO055', 'BNO085', 'BNO086'],
+                                        color: '#06b6d4'
+                                    },
+                                    {
+                                        title: '✋ 交互与状态感知',
+                                        icon: '✋',
+                                        items: ['APDS9960', 'TCS34725', 'VCNL4010'],
+                                        color: '#3b82f6'
+                                    },
+                                    {
+                                        title: '🧪 气体与物质检测',
+                                        icon: '🧪',
+                                        items: ['MQ-2', 'MQ-5', 'MQ-7', 'MQ-135', 'ZMOD4410', 'Senseair S8'],
+                                        color: '#ef4444'
+                                    },
+                                    {
+                                        title: '🌿 农业与土壤监测',
+                                        icon: '🌿',
+                                        items: ['土壤湿度', 'Plantmonitor', 'TDS测量'],
+                                        color: '#10b981'
+                                    },
+                                    {
+                                        title: '🚀 特殊功能传感器',
+                                        icon: '🚀',
+                                        items: ['LD2410', 'LD2413', 'RD-03D', 'ESP-Radar', 'VEML6075', 'ML8511', 'MS5837', 'SPS30'],
+                                        color: '#f59e0b'
+                                    },
+                                    {
+                                        title: '🤖 MixGo板卡与模块',
+                                        icon: '🤖',
+                                        items: ['mixgo_nova', 'mixgo_nova_voice', 'mixgo_sant', 'mixgo_soar', 'mixgo_soar_voice', 'nova_g1', 'sant_bot', 'sant_g2', 'sant_gx', 'soar_bot', 'QDProbot_Mixly_voice_V2', 'block-build-tool'],
+                                        color: '#8b5cf6'
+                                    },
+                                    {
+                                        title: '🎥 摄像头与视觉',
+                                        icon: '🎥',
+                                        items: ['camera', 'QHK210Cam', 'HuskyLens', 'esp_dl'],
+                                        color: '#10b981'
+                                    },
+                                    {
+                                        title: '🎵 音频与语音',
+                                        icon: '🎵',
+                                        items: ['music_spk', 'sant_tts', 'ci1302x', 'es8374'],
+                                        color: '#ef4444'
+                                    },
+                                    {
+                                        title: '📺 显示与屏幕',
+                                        icon: '📺',
+                                        items: ['st7789_bf', 'st7789_cf', 'SSD1306'],
+                                        color: '#06b6d4'
+                                    },
+                                    {
+                                        title: '💡 LED与灯带',
+                                        icon: '💡',
+                                        items: ['ws2812x'],
+                                        color: '#f59e0b'
+                                    },
+                                    {
+                                        title: '🌐 网络与Web',
+                                        icon: '🌐',
+                                        items: ['microdot', 'AITall_Serial_ParseData'],
+                                        color: '#3b82f6'
+                                    },
+                                    {
+                                        title: '显示与UI',
+                                        icon: '🖥️',
+                                        items: ['TFT_eSPI', 'LVGL', 'u8g2', 'Adafruit-GFX-Library', 'NeoPixelBus', 'FastLED', 'M5Unified', 'ssd1306', 'ILI9341'],
+                                        color: '#8b5cf6'
+                                    },
+                                    {
+                                        title: '物联网与云服务',
+                                        icon: '☁️',
+                                        items: ['ArduinoJson', 'Blinker', 'Firebase-ESP-Client', 'HomeKit-ESP32', 'ESPresense', 'Telegram-Bot', 'ESP-RainMaker', 'Blynk', 'PubSubClient', 'Courier'],
+                                        color: '#10b981'
+                                    },
+                                    {
+                                        title: '外设驱动',
+                                        icon: '🔌',
+                                        items: ['Adafruit-PWM-Servo-Driver', 'ESP32Servo', 'AccelStepper', 'MFRC522', 'IRremote', 'Rtc', 'SD', 'SPI', 'Wire'],
+                                        color: '#ef4444'
+                                    },
+                                    {
+                                        title: '文件系统',
+                                        icon: '📁',
+                                        items: ['SPIFFS', 'LITTLEFS', 'FATFS', 'SdFat', 'VFS', 'ESP-UFFS', 'FSBrowser'],
+                                        color: '#06b6d4'
+                                    },
+                                    {
+                                        title: '加密与安全',
+                                        icon: '🔐',
+                                        items: ['mbedTLS', 'esp-cryptoauthlib', 'AES', 'SHA', 'ArduinoJWT', 'Adafruit_QRCode'],
+                                        color: '#8b5cf6'
+                                    },
+                                    {
+                                        title: '实用工具',
+                                        icon: '🛠️',
+                                        items: ['Time', 'NTPClient', 'ezTime', 'TaskScheduler', 'SimpleTimer', 'Preferences', 'Kalman', 'Madgwick', 'ArduinoTrace'],
+                                        color: '#3b82f6'
+                                    },
+                                    {
+                                        title: '应用解决方案',
+                                        icon: '📦',
+                                        items: ['ESP-IDF', 'MicroPython', 'ESPHome', 'Tasmota', 'ESP-WHO', 'ESP-CSI', 'PlatformIO', 'OpenMV'],
+                                        color: '#10b981'
+                                    }
+                                ].map((category, idx) => (
+                                    <div
+                                        key={idx}
+                                        style={{
+                                            background: 'var(--bg-secondary)',
+                                            border: '1px solid var(--border)',
+                                            borderRadius: '12px',
+                                            padding: '1.25rem'
+                                        }}
+                                    >
+                                        <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <span>{category.icon}</span>
+                                            {category.title}
+                                        </h3>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                            {category.items.map((item, i) => (
+                                                <span
+                                                    key={i}
+                                                    className="history-tag"
+                                                    onClick={() => handleHistoryClick(item)}
+                                                    style={{
+                                                        borderColor: category.color,
+                                                        background: 'transparent'
+                                                    }}
+                                                    title={`搜索 ${item}`}
+                                                >
+                                                    <span className="en-name" style={{ color: category.color }}>{item}</span>
+                                                    <span className="cn-name">{getChineseName(item)}</span>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {loading && (
+                        <div className="loading">
+                            <div className="spinner"></div>
+                            <span>{loadingText}</span>
+                        </div>
+                    )}
+
+                    {!loading && repos.length > 0 && (
+                        <div style={{ marginTop: '2rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>找到 {repos.length} 个仓库</span>
+                                <button
+                                    onClick={translateDescriptions}
+                                    disabled={translating}
+                                    className="nav-btn"
+                                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                >
+                                    {translating ? (
+                                        <>翻译中 {transProgress}%</>
+                                    ) : (
+                                        <>
+                                            <Icons.Translate />
+                                            {translateEnabled ? '显示原文' : '翻译描述'}
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                            {translating && (
+                                <div className="progress-container" style={{ marginBottom: '1rem' }}>
+                                    <div className="progress-bar">
+                                        <div className="progress-fill" style={{ width: `${transProgress}%` }}></div>
+                                    </div>
+                                </div>
+                            )}
+                        <div className="repo-grid">
+                            {(filterReleasesOnly ? repos.filter(r => r.hasReleases) : repos).map((repo, index) => (
+                                <div
+                                    key={repo.id}
+                                    className="repo-card"
+                                    style={{ animationDelay: `${index * 50}ms` }}
+                                    onClick={() => (repo.hasReleases || repo.hasSourceCode) && handleRepoClick(repo)}
+                                >
+                                    <div className="repo-header">
+                                        <div className="repo-icon">
+                                            <Icons.Chip />
+                                        </div>
+                                        <div className="repo-info">
+                                            <div className="repo-name">{repo.full_name}</div>
+                                            <div className="repo-stars">
+                                                <Icons.Star /> {repo.stargazers_count.toLocaleString()}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {/* 状态标签 */}
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        marginBottom: '0.75rem',
+                                        flexWrap: 'wrap'
+                                    }}>
+                                        {repo.latest_release && repo.hasReleases && (
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.5rem',
+                                                padding: '0.375rem 0.5rem',
+                                                background: 'var(--bg-card)',
+                                                borderRadius: '8px',
+                                                fontSize: '0.8rem'
+                                            }}>
+                                                <span style={{
+                                                    background: 'var(--success)',
+                                                    color: '#000',
+                                                    padding: '0.125rem 0.5rem',
+                                                    borderRadius: '4px',
+                                                    fontWeight: 600
+                                                }}>
+                                                    📦
+                                                </span>
+                                                <span className="mono" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                                                    {repo.latest_release.tag_name}
+                                                </span>
+                                                <span style={{ color: 'var(--text-secondary)' }}>
+                                                    {new Date(repo.latest_release.published_at).toLocaleDateString('zh-CN')}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {repo.hasSourceCode && !repo.hasReleases && (
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.5rem',
+                                                padding: '0.375rem 0.5rem',
+                                                background: 'var(--bg-secondary)',
+                                                borderRadius: '8px',
+                                                fontSize: '0.8rem'
+                                            }}>
+                                                <span style={{
+                                                    background: 'var(--accent)',
+                                                    color: '#fff',
+                                                    padding: '0.125rem 0.5rem',
+                                                    borderRadius: '4px',
+                                                    fontWeight: 600
+                                                }}>
+                                                    💾
+                                                </span>
+                                                <span style={{ color: 'var(--text-secondary)' }}>
+                                                    有源代码
+                                                </span>
+                                            </div>
+                                        )}
+                                        {!repo.hasReleases && !repo.hasSourceCode && (
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.5rem',
+                                                padding: '0.375rem 0.5rem',
+                                                background: 'var(--bg-secondary)',
+                                                borderRadius: '8px',
+                                                fontSize: '0.8rem'
+                                            }}>
+                                                <span style={{
+                                                    background: 'var(--warning)',
+                                                    color: '#000',
+                                                    padding: '0.125rem 0.5rem',
+                                                    borderRadius: '4px',
+                                                    fontWeight: 600
+                                                }}>
+                                                    !
+                                                </span>
+                                                <span style={{ color: 'var(--text-secondary)' }}>
+                                                    无发布无代码
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className="repo-desc">
+                                        {translateEnabled && translatedDescs[repo.id]
+                                            ? translatedDescs[repo.id]
+                                            : (repo.description || '暂无描述')}
+                                    </p>
+                                    <a
+                                        href={repo.html_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="repo-link"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <Icons.ExternalLink /> {repo.html_url}
+                                    </a>
+                                </div>
+                            ))}
+                        </div>
+                        </div>
+                    )}
+
+                    {!loading && repos.length === 0 && (
+                        <div className="empty-state">
+                            <p>未找到相关仓库</p>
+                            <p style={{ fontSize: '0.875rem', marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
+                                尝试使用不同的关键词搜索
+                            </p>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Detail Page
+        function DetailPage() {
+            const { selectedRepo, goBack, setToast } = useContext(AppContext);
+            const [releases, setReleases] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [expandedRelease, setExpandedRelease] = useState(null);
+
+            useEffect(() => {
+                if (selectedRepo) {
+                    fetchReleases();
+                } else {
+                    // 如果没有选中仓库，跳回上一页
+                    goBack();
+                }
+            }, [selectedRepo, goBack]);
+
+            const fetchReleases = async () => {
+                if (!selectedRepo) return;
+                setLoading(true);
+                try {
+                    const [owner, repo] = selectedRepo.full_name.split('/');
+                    const res = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/releases`);
+                    if (!res.ok) {
+                        throw new Error(`HTTP error! status: ${res.status}`);
+                    }
+                    const data = await res.json();
+                    setReleases(Array.isArray(data) ? data : []);
+                } catch (err) {
+                    console.error('Failed to fetch releases:', err);
+                    setToast('获取版本失败，请检查网络', 'error');
+                    setReleases([]);
+                }
+                setLoading(false);
+            };
+
+            const handleDownload = (url, name) => {
+                // Record download
+                const downloads = JSON.parse(localStorage.getItem('esp32_downloads') || '[]');
+                downloads.unshift({
+                    name: name,
+                    size: 0,
+                    url: url,
+                    repo: selectedRepo.full_name,
+                    downloadedAt: new Date().toISOString()
+                });
+                localStorage.setItem('esp32_downloads', JSON.stringify(downloads.slice(0, 100)));
+
+                // Trigger download
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = name;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                setToast(`已开始下载: ${name}`, 'success');
+            };
+
+            const formatSize = (bytes) => {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            };
+
+            const formatDate = (dateStr) => {
+                return new Date(dateStr).toLocaleDateString('zh-CN');
+            };
+
+            return (
+                <div>
+                    <div className="detail-header">
+                        <button className="back-btn" onClick={goBack}>
+                            <Icons.ArrowLeft /> 返回上一页
+                        </button>
+
+                        <h1 className="detail-title">{selectedRepo?.full_name}</h1>
+                        <p className="detail-desc">{selectedRepo?.description || '暂无描述'}</p>
+
+                        <div className="detail-meta">
+                            <div className="meta-item">
+                                <Icons.Star /> {selectedRepo?.stargazers_count.toLocaleString()} 星标
+                            </div>
+                            <div className="meta-item">
+                                <a href={selectedRepo?.html_url} target="_blank" rel="noopener noreferrer">
+                                    <Icons.ExternalLink /> 在 GitHub 查看
+                                </a>
+                            </div>
+                            {/* 源代码下载 */}
+                            {selectedRepo?.default_branch && (
+                                <div className="meta-item">
+                                    <a href={`${selectedRepo.html_url}/archive/refs/heads/${selectedRepo.default_branch}.zip`} onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDownload(
+                                            `${selectedRepo.html_url}/archive/refs/heads/${selectedRepo.default_branch}.zip`,
+                                            `${selectedRepo.name}-${selectedRepo.default_branch}.zip`
+                                        );
+                                    }} className="download-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', color: 'var(--text-primary)', background: 'var(--accent)', padding: '0.5rem 1rem', borderRadius: '8px' }}>
+                                        <Icons.Download /> 下载源代码
+                                    </a>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <h2 className="section-title">
+                        <Icons.Download /> 版本列表 ({releases.length})
+                    </h2>
+
+                    {loading && (
+                        <div className="loading">
+                            <div className="spinner"></div>
+                            <span>加载中...</span>
+                        </div>
+                    )}
+
+                    {!loading && releases.length === 0 && (
+                        <div className="empty-state">
+                            <p>暂无版本发布</p>
+                            <p style={{ fontSize: '0.875rem', marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
+                                您可以下载源代码
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="releases-list">
+                        {releases.map((release) => (
+                            <div key={release.id} className="release-item">
+                                <div
+                                    className="release-header"
+                                    onClick={() => setExpandedRelease(expandedRelease === release.tag_name ? null : release.tag_name)}
+                                >
+                                    <div className="release-info">
+                                        <span className="release-tag">{release.tag_name}</span>
+                                        <span className="release-date">
+                                            {formatDate(release.published_at)}
+                                        </span>
+                                        {release.prerelease && (
+                                            <span className="release-badge">预发布</span>
+                                        )}
+                                    </div>
+                                    <div className={`release-toggle ${expandedRelease === release.tag_name ? 'expanded' : ''}`}>
+                                        <Icons.ChevronDown />
+                                    </div>
+                                </div>
+
+                                <div className={`release-content ${expandedRelease === release.tag_name ? 'expanded' : ''}`}>
+                                    {release.name && (
+                                        <p style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                                            {release.name}
+                                        </p>
+                                    )}
+
+                                    <div className="asset-list">
+                                        {release.assets && release.assets.length > 0 ? (
+                                            release.assets.map((asset) => (
+                                                <div key={asset.id} className="asset-item">
+                                                    <div className="asset-info">
+                                                        <div className="asset-icon">
+                                                            <Icons.File />
+                                                        </div>
+                                                        <div>
+                                                            <div className="asset-name">{asset.name}</div>
+                                                            <div className="asset-size">{formatSize(asset.size)}</div>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        className="download-btn"
+                                                        onClick={() => handleDownload(asset.browser_download_url, asset.name)}
+                                                    >
+                                                        <Icons.Download /> 下载
+                                                    </button>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p style={{ color: 'var(--text-secondary)', padding: '0.75rem' }}>
+                                                此版本暂无固件文件
+                                            </p>
+                                        )}
+
+                                        {/* 源代码下载链接 */}
+                                        <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
+                                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
+                                                    源代码：
+                                            </p>
+                                                <div className="asset-list">
+                                                    <div className="asset-item">
+                                                        <div className="asset-info">
+                                                            <div className="asset-icon">
+                                                                <Icons.File />
+                                                            </div>
+                                                            <div>
+                                                                <div className="asset-name">{release.tag_name}.zip</div>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            className="download-btn"
+                                                            onClick={() => handleDownload(release.zipball_url, `${release.tag_name}.zip`)}
+                                                        >
+                                                            <Icons.Download /> ZIP
+                                                        </button>
+                                                    </div>
+                                                    <div className="asset-item">
+                                                        <div className="asset-info">
+                                                            <div className="asset-icon">
+                                                                <Icons.File />
+                                                            </div>
+                                                            <div>
+                                                                <div className="asset-name">{release.tag_name}.tar.gz</div>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            className="download-btn"
+                                                            onClick={() => handleDownload(release.tarball_url, `${release.tag_name}.tar.gz`)}
+                                                        >
+                                                            <Icons.Download /> TAR.GZ
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        // Downloads Page
+        function DownloadsPage() {
+            const { goBack, setToast } = useContext(AppContext);
+            const [downloads, setDownloads] = useState([]);
+
+            useEffect(() => {
+                loadDownloads();
+            }, []);
+
+            const loadDownloads = () => {
+                const data = JSON.parse(localStorage.getItem('esp32_downloads') || '[]');
+                setDownloads(data);
+            };
+
+            const handleDelete = (index) => {
+                const newDownloads = downloads.filter((_, i) => i !== index);
+                localStorage.setItem('esp32_downloads', JSON.stringify(newDownloads));
+                setDownloads(newDownloads);
+                setToast('已删除记录', 'success');
+            };
+
+            const handleClear = () => {
+                localStorage.removeItem('esp32_downloads');
+                setDownloads([]);
+                setToast('已清空记录', 'success');
+            };
+
+            const handleReDownload = (item) => {
+                const link = document.createElement('a');
+                link.href = item.url;
+                link.download = item.name;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setToast(`已开始下载: ${item.name}`, 'success');
+            };
+
+            const formatSize = (bytes) => {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            };
+
+            const formatDate = (dateStr) => {
+                return new Date(dateStr).toLocaleDateString('zh-CN') + ' ' +
+                       new Date(dateStr).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            };
+
+            return (
+                <div>
+                    <div className="downloads-header">
+                        <button className="back-btn" onClick={goBack}>
+                            <Icons.ArrowLeft /> 返回上一页
+                        </button>
+                        <h1 className="downloads-title">下载管理</h1>
+                        {downloads.length > 0 && (
+                            <button className="clear-btn" onClick={handleClear}>
+                                清空记录
+                            </button>
+                        )}
+                    </div>
+
+                    {downloads.length === 0 && (
+                        <div className="empty-state">
+                            <Icons.Folder />
+                            <p style={{ marginTop: '1rem' }}>暂无下载记录</p>
+                        </div>
+                    )}
+
+                    {downloads.length > 0 && (
+                        <div className="downloads-list">
+                            {downloads.map((item, index) => (
+                                <div key={index} className="download-item">
+                                    <div className="download-icon">
+                                        <Icons.Check />
+                                    </div>
+                                    <div className="download-info">
+                                        <div className="download-name">{item.name}</div>
+                                        <div className="download-meta">
+                                            <span>{formatSize(item.size)}</span>
+                                            <span>•</span>
+                                            <span>{item.repo}</span>
+                                            <span>•</span>
+                                            <span>{formatDate(item.downloadedAt)}</span>
+                                        </div>
+                                    </div>
+                                    <div className="download-actions">
+                                        <button
+                                            className="action-btn"
+                                            onClick={() => handleReDownload(item)}
+                                            title="重新下载"
+                                        >
+                                            <Icons.Download />
+                                        </button>
+                                        <button
+                                            className="action-btn delete"
+                                            onClick={() => handleDelete(index)}
+                                            title="删除记录"
+                                        >
+                                            <Icons.Trash />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Main App
+        function App() {
+            const [currentPage, setCurrentPage] = useState('search');
+            const [pageHistory, setPageHistory] = useState(['search']);
+            const [selectedRepo, setSelectedRepo] = useState(null);
+            const [toast, setToast] = useState(null);
+            const [searchHistory, setSearchHistory] = useState([]);
+
+            useEffect(() => {
+                // Load search history
+                const history = JSON.parse(localStorage.getItem('esp32_search_history') || '[]');
+                setSearchHistory(history);
+            }, []);
+
+            const handleToastClose = useCallback(() => {
+                setToast(null);
+            }, []);
+
+            const navigateToPage = useCallback((page, repo = null) => {
+                setPageHistory(prev => [...prev, page]);
+                if (repo) {
+                    setSelectedRepo(repo);
+                }
+                setCurrentPage(page);
+            }, []);
+
+            const goBack = useCallback(() => {
+                if (pageHistory.length > 1) {
+                    const newHistory = pageHistory.slice(0, -1);
+                    setPageHistory(newHistory);
+                    const previousPage = newHistory[newHistory.length - 1];
+                    setCurrentPage(previousPage);
+                } else {
+                    setCurrentPage('search');
+                    setPageHistory(['search']);
+                }
+            }, [pageHistory]);
+
+            return (
+                <AppContext.Provider value={{
+                    currentPage,
+                    setCurrentPage: navigateToPage,
+                    goBack,
+                    selectedRepo,
+                    setSelectedRepo,
+                    toast,
+                    setToast,
+                    searchHistory,
+                    setSearchHistory
+                }}>
+                    <div className="app">
+                        <Header />
+                        <main className="main">
+                            {currentPage === 'search' && <SearchPage />}
+                            {currentPage === 'detail' && <DetailPage />}
+                            {currentPage === 'downloads' && <DownloadsPage />}
+                        </main>
+                        {toast && (
+                            <Toast
+                                message={toast.message}
+                                type={toast.type}
+                                onClose={handleToastClose}
+                            />
+                        )}
+                    </div>
+                </AppContext.Provider>
+            );
+        }
+
+        // Render
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
